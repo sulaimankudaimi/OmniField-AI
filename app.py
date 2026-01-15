@@ -1,96 +1,90 @@
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px
 import pandas as pd
 import numpy as np
+from sklearn.linear_model import LinearRegression
 
-# --- 1. الإعدادات والوضوح ---
+# --- 1. إعدادات الهوية والوضوح القصوى ---
 PLATFORM_NAME = "PetroVision AI"
 DEVELOPER_NAME = "Eng. Sulaiman Kudaimi"
 
-st.set_page_config(page_title=PLATFORM_NAME, layout="wide")
+st.set_page_config(page_title=f"{PLATFORM_NAME}", layout="wide", initial_sidebar_state="expanded")
 
-# CSS محسن للتباين والوضوح العالي
+# تصميم CSS لضمان وضوح العناوين والقائمة الجانبية
 st.markdown("""
     <style>
     .main { background-color: #05070a; color: #ffffff; }
-    [data-testid="stSidebar"] { background-color: #000000 !important; border-right: 2px solid #00f2ff !important; }
-    .st-emotion-cache-16idsys p { color: white !important; font-weight: bold; }
-    .header-box { padding: 25px; border-radius: 15px; background: #111827; border: 2px solid #00f2ff; text-align: center; margin-bottom: 25px; }
-    .alert-text { background-color: #ff0000; color: white; padding: 5px 15px; border-radius: 5px; font-weight: bold; }
+    [data-testid="stSidebar"] { 
+        background-color: #000000 !important; 
+        border-right: 2px solid #00f2ff !important;
+    }
+    /* وضوح نصوص القائمة الجانبية */
+    .st-ae, .st-af, .st-ag, p, span, label {
+        color: #ffffff !important;
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+    }
+    /* تصميم العناوين الكبيرة والمضيئة */
+    h1 {
+        color: #00f2ff !important;
+        font-weight: 900 !important;
+        text-shadow: 2px 2px 15px rgba(0, 242, 255, 0.6);
+        text-align: center;
+        text-transform: uppercase;
+    }
+    .header-box { 
+        padding: 30px; border-radius: 20px; 
+        background: rgba(17, 24, 39, 0.9); border: 2px solid #00f2ff;
+        text-align: center; margin-bottom: 30px;
+        box-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+    }
+    .guide-card {
+        padding: 20px; background: #161b22; border-left: 5px solid #00f2ff;
+        margin-bottom: 15px; border-radius: 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. القائمة الجانبية ---
+# --- 2. محرك تحميل البيانات الديناميكي ---
+@st.cache_data
+def get_default_data():
+    # توليد بيانات افتراضية في حال عدم وجود ملفات لضمان عمل المنصة فوراً
+    time = np.arange(100)
+    prod = 5000 * np.exp(-0.02 * time) + np.random.normal(0, 50, 100)
+    return pd.DataFrame({'Days': time, 'Production': prod})
+
+def load_data(uploaded_file=None):
+    if uploaded_file is not None:
+        return pd.read_csv(uploaded_file)
+    try:
+        return pd.read_csv("Data/production_history.csv")
+    except:
+        return get_default_data()
+
+# --- 3. القائمة الجانبية (Sidebar) مع بوابة البيانات ---
 with st.sidebar:
-    st.markdown(f"<h1 style='color:#00f2ff; text-align:center;'>{PLATFORM_NAME}</h1>", unsafe_allow_html=True)
-    menu = st.radio("OPERATIONAL MODULES", ["Strategic Overview", "3D Reservoir Twin", "AI Production Forecast", "HSE & Safety Control"])
+    st.markdown(f"""
+        <div style='text-align:center; padding:15px; border:2px solid #00f2ff; border-radius:15px;'>
+            <h1 style='color:#00f2ff; font-size:1.5em;'>{PLATFORM_NAME}</h1>
+            <p style='color:white; font-size:0.9em;'>By Eng. Sulaiman Kudaimi</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
     st.markdown("---")
-    st.write(f"Developed by: **{DEVELOPER_NAME}**")
+    menu = st.radio("MAIN NAVIGATION", 
+                    ["📖 Quick Start Guide", "📊 Strategic Dashboard", "🌐 3D Reservoir Twin", "🔮 AI Production Forecast", "🛡️ HSE & Sensors"])
+    
+    st.markdown("---")
+    st.markdown("### 📥 FIELD DATA GATEWAY")
+    up_file = st.file_uploader("Upload Field CSV", type=['csv'], help="Upload production logs to update the AI model.")
+    
+    st.markdown("---")
+    st.success("✅ System Status: Operational")
 
-# --- 3. معالجة الواجهات ---
+# تحميل البيانات بناءً على الرفع
+active_df = load_data(up_file)
 
-if menu == "AI Production Forecast":
-    st.markdown("<div class='header-box'><h1>🔮 AI Production Forecasting Hub</h1></div>", unsafe_allow_html=True)
-    
-    # بارامترات التحكم بالتنبؤ (التفاعلية)
-    col_p1, col_p2 = st.columns(2)
-    with col_p1:
-        years = st.slider("Prediction Horizon (Years)", 1, 5, 3)
-        initial_rate = st.number_input("Initial Production (bpd)", 1000, 10000, 5000)
-    with col_p2:
-        decline_rate = st.slider("Annual Decline Rate (%)", 1, 30, 10)
-    
-    # معادلة الهبوط الأسي (Exponential Decline)
-    months = np.arange(0, years * 12)
-    # q = qi * e^(-di * t)
-    prediction = initial_rate * np.exp(-(decline_rate/100) * (months/12))
-    
-    fig_ai = go.Figure()
-    fig_ai.add_trace(go.Scatter(x=months, y=prediction, name="Predicted Flow Rate", 
-                                line=dict(color='#00f2ff', width=4), fill='tozeroy'))
-    
-    fig_ai.update_layout(
-        template='plotly_dark',
-        title="Predictive Production Curve (Dynamic Arps Model)",
-        xaxis_title="Timeline (Months)",
-        yaxis_title="Oil Production (bpd)",
-        hovermode="x unified"
-    )
-    st.plotly_chart(fig_ai, use_container_width=True)
-    
-    # مؤشرات ذكية
-    st.info(f"💡 Estimated Cumulative Production for {years} years: **{int(prediction.sum() * 30):,} Barrels**")
-
-elif menu == "HSE & Safety Control":
-    st.markdown("<div class='header-box'><h1>🛡️ HSE & Asset Integrity Sentinel</h1></div>", unsafe_allow_html=True)
-    
-    # تحسين عرض الحساسات (وضوح فائق)
-    st.markdown("<span class='alert-text'>CRITICAL MONITORING: HIGH-PRESSURE ZONE</span>", unsafe_allow_html=True)
-    
-    # توليد بيانات حساسات واقعية (مع ضجيج بسيط)
-    time_steps = np.arange(100)
-    pressure = 2800 + np.random.normal(0, 15, 100)
-    limit = [3000] * 100 # خط حد الأمان
-    
-    fig_safety = go.Figure()
-    fig_safety.add_trace(go.Scatter(x=time_steps, y=pressure, name="Wellhead Pressure", line=dict(color='#00f2ff', width=2)))
-    fig_safety.add_trace(go.Scatter(x=time_steps, y=limit, name="Safety Limit", line=dict(color='red', dash='dash')))
-    
-    fig_safety.update_layout(
-        template='plotly_dark',
-        xaxis_title="Time (Last 100 Minutes)",
-        yaxis_title="Pressure (psi)",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    st.plotly_chart(fig_safety, use_container_width=True)
-    
-    # لوحة مؤشرات السلامة
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Max Pressure Recorded", f"{int(pressure.max())} psi", "Safe")
-    c2.metric("Vibration Status", "Normal", "0.2 mm/s")
-    c3.metric("Alarm Status", "Clear", "No Leaks")
-
-# (بقية الأقسام تتبع نفس المنطق المطور)
 # --- 4. معالجة الصفحات والمحتوى ---
 
 # العنوان الرئيسي الموحد
